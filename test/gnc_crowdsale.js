@@ -111,6 +111,16 @@ contract('GNCCrowdsale', (accounts) => {
         assert.equal(true, balanceOwnerBefore<balanceOwnerAfter);
     });
 
+    it('verification whitelist', async ()  => {
+        var balanceAccountSixBefore = await contract.balanceOf(accounts[6]);
+        assert.equal(0, Number(balanceAccountSixBefore));
+
+        await contract.addToWhitelist(accounts[6]);
+        await contract.buyTokens(accounts[6],{from:accounts[6], value:buyWei});
+        balanceAccountSixAfter = await contract.balanceOf(accounts[6]);
+        assert.equal(buyWei*rate*1.05, Number(balanceAccountSixAfter));
+    });
+
     it('verification tokens limit min amount', async ()  => {
         var numberTokensMinWey = await contract.validPurchaseTokens.call(buyWeiMin);
         assert.equal(0, Number(numberTokensMinWey));
