@@ -80,6 +80,13 @@ contract ERC20 {
 
 contract BasicToken is ERC20Basic {
     using SafeMath for uint256;
+    uint8 decimals = 18;
+
+    address public addressFundTeam     = 0xCE4B70066331aF47CBF6b4AA4Fb85B0F3E598Ae8;
+    address public addressFundAdvisors = 0x4386a80917A6367153880C9ee6EC361c660a64EC;
+    uint256 public fundTeam     = 75 * 10**5 * (10 ** uint256(decimals));
+    uint256 public fundAdvisors = 45 * 10**5 * (10 ** uint256(decimals));
+    uint256 endTimeIco   = 1552694399; // Fri, 15 Mar 2019 23:59:59 GMT
 
     mapping (address => uint256) balances;
 
@@ -100,12 +107,38 @@ contract BasicToken is ERC20Basic {
         require(_to != address(0));
         require(_value <= balances[msg.sender]);
         require(transfersEnabled);
-
+        if (msg.sender == addressFundTeam) {
+            require(checkVesting(_value, now) > 0);
+        }
+        if (msg.sender == addressFundAdvisors) {
+            require(now > (endTimeIco + 26 weeks));
+        }
         // SafeMath.sub will throw if there is not enough balance.
         balances[msg.sender] = balances[msg.sender].sub(_value);
         balances[_to] = balances[_to].add(_value);
         emit Transfer(msg.sender, _to, _value);
         return true;
+    }
+
+    function checkVesting(uint256 _value, uint256 _currentTime) public view returns(uint8 period) {
+        period = 0;
+        require(endTimeIco <= _currentTime); // for test
+        if ( (endTimeIco + 26 weeks) <= _currentTime && _currentTime < (endTimeIco + 52 weeks) ) {
+            period = 1;
+            require(balances[addressFundTeam].sub(_value) >= fundTeam.mul(75).div(100));
+        }
+        if ( (endTimeIco + 52 weeks) <= _currentTime && _currentTime < (endTimeIco + 78 weeks) ) {
+            period = 2;
+            require(balances[addressFundTeam].sub(_value) >= fundTeam.mul(50).div(100));
+        }
+        if ( (endTimeIco + 78 weeks) <= _currentTime && _currentTime < (endTimeIco + 104 weeks) ) {
+            period = 3;
+            require(balances[addressFundTeam].sub(_value) >= fundTeam.mul(25).div(100));
+        }
+        if ( (endTimeIco + 104 weeks) <= _currentTime ) {
+            period = 4;
+            require(balances[addressFundTeam].sub(_value) >= 0);
+        }
     }
 
     /**
@@ -202,6 +235,7 @@ contract StandardToken is ERC20, BasicToken {
  */
 contract Ownable {
     address public owner;
+    address public ownerTwo;
 
     event OwnerChanged(address indexed previousOwner, address indexed newOwner);
 
@@ -209,7 +243,7 @@ contract Ownable {
      * @dev Throws if called by any account other than the owner.
      */
     modifier onlyOwner() {
-        require(msg.sender == owner);
+        require(msg.sender == owner || msg.sender == ownerTwo);
         _;
     }
 
@@ -331,18 +365,16 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
 
     mapping (address => uint256) public deposited;
     mapping(address => bool) public whitelist;
+    mapping (address => mapping (address => bool)) internal isRefferer;
+
 
     uint256 public constant INITIAL_SUPPLY = 5 * 10**7 * (10 ** uint256(decimals));
     uint256 public    fundForSale = 3 * 10**7 * (10 ** uint256(decimals));
 
-    address public addressFundTeam     = 0xCE4B70066331aF47CBF6b4AA4Fb85B0F3E598Ae8;
     address public addressFundReserv   = 0x0B55283caD0cc5372E4D33aD6D3260D8050EccD4;
-    address public addressFundAdvisors = 0x4386a80917A6367153880C9ee6EC361c660a64EC;
     address public addressFundBounty   = 0xfe17aa1cf299038780b8B16F0B89DB8cEcF28a89;
 
-    uint256 public fundTeam     = 75 * 10**5 * (10 ** uint256(decimals));
     uint256 public fundReserv   = 75 * 10**5 * (10 ** uint256(decimals));
-    uint256 public fundAdvisors = 45 * 10**5 * (10 ** uint256(decimals));
     uint256 public fundBounty   =  5 * 10**5 * (10 ** uint256(decimals));
 
     uint256 limitPreIco = 6 * 10**6 * (10 ** uint256(decimals));
@@ -373,7 +405,8 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
     {
         require(_owner != address(0));
         owner = _owner;
-        owner = msg.sender; // $$$ for test's
+        ownerTwo = addressFundReserv;
+        //owner = msg.sender; // $$$ for test's
         transfersEnabled = true;
         mintingFinished = false;
         totalSupply = INITIAL_SUPPLY;
@@ -406,7 +439,7 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
 
     function getTotalAmountOfTokens(uint256 _weiAmount) internal returns (uint256) {
         uint256 currentDate = now;
-        currentDate = 1543658400; // (01 Dec 2018) // $$$ for test's
+        //currentDate = 1543658400; // (01 Dec 2018) // $$$ for test's
         uint currentPeriod = 0;
         currentPeriod = getPeriod(currentDate);
         uint256 amountOfTokens = 0;
@@ -428,7 +461,7 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
         return amountOfTokens;
     }
 
-    function getPeriod(uint256 _currentDate) public view returns (uint) {
+    function getPeriod(uint256 _currentDate) external view returns (uint) {
         if(_currentDate < startTimePreIco){
             return 0;
         }
@@ -464,7 +497,7 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
         result = true;
     }
 
-    function getDeposited(address _investor) public view returns (uint256){
+    function getDeposited(address _investor) external view returns (uint256){
         return deposited[_investor];
     }
 
@@ -488,6 +521,18 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
         return addTokens;
     }
 
+    function getRefferalProfit(address _refferer) external {
+        uint256 balanceRefferal = balances[msg.sender];
+        require(_refferer != address(0));
+        require(balanceRefferal > 0);
+        require(balances[_refferer] > 0);
+
+        if (isRefferer[msg.sender][_refferer] == false) {
+            isRefferer[msg.sender][_refferer] = true;
+            balances[msg.sender] = balanceRefferal.mul(105).div(100);
+        }
+    }
+
     function setWeiMin(uint256 _value) external onlyOwner {
         require(_value > 0);
         weiMin = _value;
@@ -498,7 +543,7 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
    * @param _beneficiary Address to be added to the whitelist
    */
     function addToWhitelist(address _beneficiary) external onlyOwner {
-        //require(permissions[1].approveOwner == true && permissions[1].approveOwnerTwo == true);
+        require(_beneficiary != address(0));
         whitelist[_beneficiary] = true;
     }
 
@@ -507,7 +552,6 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
      * @param _beneficiaries Addresses to be added to the whitelist
      */
     function addManyToWhitelist(address[] _beneficiaries) external onlyOwner {
-        //require(permissions[2].approveOwner == true && permissions[2].approveOwnerTwo == true);
         for (uint256 i = 0; i < _beneficiaries.length; i++) {
             whitelist[_beneficiaries[i]] = true;
         }
@@ -518,7 +562,7 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
      * @param _beneficiary Address to be removed to the whitelist
      */
     function removeFromWhitelist(address _beneficiary) external onlyOwner {
-        //require(permissions[3].approveOwner == true && permissions[3].approveOwnerTwo == true);
+        require(_beneficiary != address(0));
         whitelist[_beneficiary] = false;
     }
 }

@@ -92,6 +92,32 @@ contract('GNCCrowdsale', (accounts) => {
         assert.equal(0, period);
     });
 
+    it('check vesting period', async ()  => {
+        var currentDate = 1552219200; // Mar, 10, 2019
+        var vestingPeriod = await contract.checkVesting(buyWeiMin, currentDate);
+        assert.equal(0, vestingPeriod);
+
+        currentDate = 1568973600; // Sep, 20, 2019
+        vestingPeriod = await contract.checkVesting(buyWeiMin, currentDate);
+        assert.equal(1, vestingPeriod);
+
+        currentDate = 1584698400; // Mar, 20, 2020
+        vestingPeriod = await contract.checkVesting(buyWeiMin, currentDate);
+        assert.equal(2, vestingPeriod);
+
+        currentDate = 1600596000; // Sep, 20, 2020
+        vestingPeriod = await contract.checkVesting(buyWeiMin, currentDate);
+        assert.equal(3, vestingPeriod);
+
+        currentDate = 1616234400; // Mar, 20, 2021
+        vestingPeriod = await contract.checkVesting(buyWeiMin, currentDate);
+        assert.equal(4, vestingPeriod);
+
+        currentDate = 1646913600; // Mar, 10, 2022
+        vestingPeriod = await contract.checkVesting(buyWeiMin, currentDate);
+        assert.equal(4, vestingPeriod);
+    });
+
     it('verification claim tokens', async ()  => {
         var balanceAccountOneBefore = await contract.balanceOf(accounts[1]);
         assert.equal(0, balanceAccountOneBefore);
@@ -119,6 +145,17 @@ contract('GNCCrowdsale', (accounts) => {
         await contract.buyTokens(accounts[6],{from:accounts[6], value:buyWei});
         balanceAccountSixAfter = await contract.balanceOf(accounts[6]);
         assert.equal(buyWei*rate*1.05, Number(balanceAccountSixAfter));
+    });
+
+    it('verification refferal link', async ()  => {
+        var balanceAccountSevenBefore = await contract.balanceOf(accounts[7]);
+        assert.equal(0, Number(balanceAccountSevenBefore));
+
+        await contract.addToWhitelist(accounts[6]);
+        await contract.buyTokens(accounts[7],{from:accounts[7], value:buyWei});
+        await contract.getRefferalProfit(accounts[6],{from:accounts[7]});
+        balanceAccountSevenAfter = await contract.balanceOf(accounts[7]);
+        assert.equal(buyWei*rate*1.05, Number(balanceAccountSevenAfter));
     });
 
     it('verification tokens limit min amount', async ()  => {
