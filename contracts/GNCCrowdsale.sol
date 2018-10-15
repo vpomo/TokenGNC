@@ -122,7 +122,6 @@ contract BasicToken is ERC20Basic {
 
     function checkVesting(uint256 _value, uint256 _currentTime) public view returns(uint8 period) {
         period = 0;
-        require(endTimeIco <= _currentTime); // for test
         if ( (endTimeIco + 26 weeks) <= _currentTime && _currentTime < (endTimeIco + 52 weeks) ) {
             period = 1;
             require(balances[addressFundTeam].sub(_value) >= fundTeam.mul(75).div(100));
@@ -272,6 +271,7 @@ contract MintableToken is StandardToken, Ownable {
     string public constant name = "Greencoin";
     string public constant symbol = "GNC";
     uint8 public constant decimals = 18;
+    mapping(uint8 => uint8) public approveOwner;
 
     event Mint(address indexed to, uint256 amount);
     event MintFinished();
@@ -298,20 +298,13 @@ contract MintableToken is StandardToken, Ownable {
     }
 
     /**
-     * @dev Function to stop minting new tokens.
-     * @return True if the operation was successful.
-     */
-    function finishMinting() onlyOwner canMint internal returns (bool) {
-        mintingFinished = true;
-        emit MintFinished();
-        return true;
-    }
-
-    /**
      * Peterson's Law Protection
      * Claim tokens
      */
     function claimTokens(address _token) public onlyOwner {
+        if (checkApprove(0) == false) {
+            revert(); // for test's
+        }
         if (_token == 0x0) {
             owner.transfer(address(this).balance);
             return;
@@ -321,6 +314,23 @@ contract MintableToken is StandardToken, Ownable {
         token.transfer(owner, balance);
         emit Transfer(_token, owner, balance);
     }
+
+    function checkApprove(uint8 _numberFunction) public onlyOwner returns (bool) {
+        uint8 countApprove = approveOwner[_numberFunction];
+        if (msg.sender == owner && (countApprove == 0 || countApprove == 2) ) {
+            approveOwner[_numberFunction] += 1;
+        }
+        if (msg.sender == ownerTwo && (countApprove == 0 || countApprove == 1) ) {
+            approveOwner[_numberFunction] += 2;
+        }
+        if (approveOwner[_numberFunction] == 3) {
+            approveOwner[_numberFunction] == 0;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
 }
 
 
@@ -406,7 +416,7 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
         require(_owner != address(0));
         owner = _owner;
         ownerTwo = addressFundReserv;
-        //owner = msg.sender; // $$$ for test's
+        //owner = msg.sender; // for test's
         transfersEnabled = true;
         mintingFinished = false;
         totalSupply = INITIAL_SUPPLY;
@@ -439,7 +449,7 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
 
     function getTotalAmountOfTokens(uint256 _weiAmount) internal returns (uint256) {
         uint256 currentDate = now;
-        //currentDate = 1543658400; // (01 Dec 2018) // $$$ for test's
+        //currentDate = 1543658400; // (01 Dec 2018) // for test's
         uint currentPeriod = 0;
         currentPeriod = getPeriod(currentDate);
         uint256 amountOfTokens = 0;
@@ -461,7 +471,7 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
         return amountOfTokens;
     }
 
-    function getPeriod(uint256 _currentDate) external view returns (uint) {
+    function getPeriod(uint256 _currentDate) public view returns (uint) {
         if(_currentDate < startTimePreIco){
             return 0;
         }
@@ -501,7 +511,10 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
         return deposited[_investor];
     }
 
-    function setWallet(address _newWallet) public onlyOwner {
+    function setWallet(address _newWallet) external onlyOwner {
+        if (checkApprove(1) == false) {
+            revert();
+        }
         require(_newWallet != address(0));
         address _oldWallet = wallet;
         wallet = _newWallet;
@@ -534,6 +547,9 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
     }
 
     function setWeiMin(uint256 _value) external onlyOwner {
+        if (checkApprove(2) == false) {
+            revert();
+        }
         require(_value > 0);
         weiMin = _value;
     }
