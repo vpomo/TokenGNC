@@ -374,8 +374,8 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
     uint256 public weiMin = 0.1 ether;
 
     mapping (address => uint256) public deposited;
-    mapping(address => bool) public whitelist;
-    mapping (address => mapping (address => bool)) internal isRefferer;
+    mapping (address => bool) public whitelist;
+    mapping (address => bool) internal isRefferer;
 
 
     uint256 public constant INITIAL_SUPPLY = 5 * 10**7 * (10 ** uint256(decimals));
@@ -540,8 +540,8 @@ contract GNCCrowdsale is Ownable, Crowdsale, MintableToken {
         require(balanceRefferal > 0);
         require(balances[_refferer] > 0);
 
-        if (isRefferer[msg.sender][_refferer] == false) {
-            isRefferer[msg.sender][_refferer] = true;
+        if (isRefferer[msg.sender] == false) {
+            isRefferer[msg.sender] = true;
             balances[msg.sender] = balanceRefferal.mul(105).div(100);
         }
     }

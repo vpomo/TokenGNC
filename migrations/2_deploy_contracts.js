@@ -8,3 +8,4 @@ module.exports = (deployer) => {
     deployer.deploy(GNCCrowdsale, owner, wallet);
 
 };
+//"0xc7BE5CAa4DC9FD5cBb27a76d828404F85018568F","0xb4ABbec258Fc273505Df3729D831008A4B763f8c"
